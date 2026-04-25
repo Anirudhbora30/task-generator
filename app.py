@@ -31,7 +31,7 @@ def copy_button(text, label):
     components.html(html_code, height=60)
 
 st.title("🎙️ Unified Task Generator")
-st.write("Generate a simple heading and brief description from your files.")
+st.write("Generate a specific heading and brief description from your files.")
 
 uploaded_files = st.file_uploader(
     "Select your Video and Audio files", 
@@ -57,17 +57,20 @@ if uploaded_files:
                     st.error(f"Error: {e}")
 
         if all_transcripts:
-            with st.spinner("Processing files..."):
+            with st.spinner("Analyzing content for a specific heading..."):
                 combined_text = "\n".join(all_transcripts)
                 
-                # Simplified prompt: No steps/expected/actual, just a brief description
+                # Updated prompt to avoid generic headings
                 master_prompt = f"""
-                Analyze these transcripts and create a combined task report.
+                Analyze these transcripts and create a combined report.
+                
+                CRITICAL INSTRUCTION: Do NOT use generic headings like 'Combine Task Report' or 'Task Update'. 
+                Look at the SPECIFIC issue described in the files (e.g., UI alignment, language error, button crash) and use that for the heading.
                 
                 Transcripts: {combined_text}
                 
                 Output ONLY a JSON object:
-                "h": "A short, clear heading",
+                "h": "A specific, descriptive heading based on the actual bug/task",
                 "d": "A brief, professional description of the task based on the files provided."
                 """
                 
