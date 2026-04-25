@@ -17,18 +17,19 @@ st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="centered"
 
 # --- Function for Copy Button ---
 def copy_button(text, label):
-    # This creates a small HTML button that copies text to your phone/PC clipboard
+    # Sanitize text for JavaScript template literals
+    safe_text = text.replace("`", "\\`").replace("${", "\\${")
     html_code = f"""
-    <button onclick="navigator.clipboard.writeText(`{text}`)" 
-    style="background-color: #ff4b4b; color: white; border: none; padding: 5px 10px; 
-    border-radius: 5px; cursor: pointer; margin-bottom: 10px;">
+    <button onclick="navigator.clipboard.writeText(`{safe_text}`)" 
+    style="background-color: #ff4b4b; color: white; border: none; padding: 8px 12px; 
+    border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-weight: bold;">
     Copy {label}
     </button>
     """
-    components.html(html_code, height=45)
+    components.html(html_code, height=50)
 
 st.title("🎙️ Unified Task Generator")
-st.write("Upload all videos/audios. AI will combine them into **one** master task.")
+st.write("Upload all videos/audios. AI will combine them into **one** professional bug report.")
 
 uploaded_files = st.file_uploader(
     "Select your Video and Audio files", 
@@ -39,11 +40,11 @@ uploaded_files = st.file_uploader(
 if uploaded_files:
     st.info(f"📁 **{len(uploaded_files)} files selected.**")
     
-    if st.button("Generate One Master Task", type="primary"):
+    if st.button("Generate Master Task", type="primary"):
         all_transcripts = []
         
         for uploaded_file in uploaded_files:
-            with st.spinner(f"Reading {uploaded_file.name}..."):
+            with st.spinner(f"Transcribing {uploaded_file.name}..."):
                 try:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
                         tmp.write(uploaded_file.getvalue())
@@ -52,19 +53,29 @@ if uploaded_files:
                     with open(tmp_path, "rb") as f:
                         transcript = client.audio.transcriptions.create(model="whisper-large-v3", file=f)
                     
-                    all_transcripts.append(f"File ({uploaded_file.name}): {transcript.text}")
+                    all_transcripts.append(f"Source ({uploaded_file.name}): {transcript.text}")
                     os.remove(tmp_path)
                 except Exception as e:
                     st.error(f"Error reading {uploaded_file.name}: {e}")
 
         if all_transcripts:
-            with st.spinner("Combining everything into one task..."):
+            with st.spinner("AI is analyzing all data to create a professional report..."):
                 combined_text = "\n".join(all_transcripts)
                 
                 master_prompt = f"""
-                You are a professional QA Lead. Combine these bug reports into one cohesive JSON:
-                {{'h': 'One master heading', 'd': 'One master description'}}
-                Transcripts: {combined_text}
+                You are a Senior QA Automation Engineer. I am providing multiple transcripts from bug report recordings.
+                Combine them into one high-quality, professional Jira-style bug report.
+                
+                Transcripts to analyze:
+                {combined_text}
+                
+                Return ONLY a JSON object with:
+                "h": A concise, professional heading (e.g., "[Bug] Issue with checkout button on mobile").
+                "d": A detailed description including:
+                    - Summary of the issue
+                    - Steps to reproduce
+                    - Expected vs Actual results
+                    - Any specific observations mentioned in the audio/video.
                 """
                 
                 res = client.chat.completions.create(
@@ -80,10 +91,10 @@ if uploaded_files:
                 
                 # Heading Section
                 st.subheader("Heading")
-                st.code(heading, language=None)
+                st.info(heading)
                 copy_button(heading, "Heading")
                 
                 # Description Section
                 st.subheader("Description")
-                st.write(description)
+                st.markdown(f"```\n{description}\n```")
                 copy_button(description, "Description")
