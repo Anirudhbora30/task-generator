@@ -31,7 +31,7 @@ def copy_button(text, label):
     components.html(html_code, height=60)
 
 st.title("🎙️ Unified Task Generator")
-st.write("Clean, technical bug reports for developers.")
+st.write("Generate a simple heading and brief description from your files.")
 
 uploaded_files = st.file_uploader(
     "Select your Video and Audio files", 
@@ -40,11 +40,11 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    if st.button("Generate Developer Task", type="primary"):
+    if st.button("Generate Task Details", type="primary"):
         all_transcripts = []
         
         for uploaded_file in uploaded_files:
-            with st.spinner(f"Transcribing {uploaded_file.name}..."):
+            with st.spinner(f"Reading {uploaded_file.name}..."):
                 try:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
                         tmp.write(uploaded_file.getvalue())
@@ -57,18 +57,18 @@ if uploaded_files:
                     st.error(f"Error: {e}")
 
         if all_transcripts:
-            with st.spinner("AI is drafting technical details..."):
+            with st.spinner("Processing files..."):
                 combined_text = "\n".join(all_transcripts)
                 
+                # Simplified prompt: No steps/expected/actual, just a brief description
                 master_prompt = f"""
-                Act as a Senior QA Engineer. Create a brief, technical bug report for a developer.
-                Avoid conversational filler. Focus only on actionable data.
+                Analyze these transcripts and create a combined task report.
                 
                 Transcripts: {combined_text}
                 
                 Output ONLY a JSON object:
-                "h": "Short, technical title",
-                "d": "Brief Summary\\n\\nSteps:\\n1...\\n2...\\n\\nExpected: ...\\nActual: ..."
+                "h": "A short, clear heading",
+                "d": "A brief, professional description of the task based on the files provided."
                 """
                 
                 res = client.chat.completions.create(
@@ -81,12 +81,12 @@ if uploaded_files:
                 heading = data.get('h', '')
                 description = data.get('d', '')
 
-                st.success("### ✅ Task Ready")
+                st.success("### ✅ Task Generated")
                 
                 st.subheader("Task Heading")
                 st.info(heading)
                 copy_button(heading, "Heading")
                 
-                st.subheader("Developer Description")
+                st.subheader("Task Description")
                 st.text_area("Details", value=description, height=250)
                 copy_button(description, "Description")
