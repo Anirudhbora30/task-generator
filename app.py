@@ -17,19 +17,24 @@ st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="centered"
 
 # --- Function for Copy Button ---
 def copy_button(text, label):
-    # Sanitize text for JavaScript template literals
-    safe_text = text.replace("`", "\\`").replace("${", "\\${")
+    # Ensure text is a string to prevent AttributeError
+    if not isinstance(text, str):
+        text = json.dumps(text, indent=2)
+    
+    # Sanitize text for JavaScript
+    safe_text = text.replace("`", "\\`").replace("${", "\\${").replace("'", "\\'")
+    
     html_code = f"""
     <button onclick="navigator.clipboard.writeText(`{safe_text}`)" 
-    style="background-color: #ff4b4b; color: white; border: none; padding: 8px 12px; 
-    border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-weight: bold;">
-    Copy {label}
+    style="background-color: #ff4b4b; color: white; border: none; padding: 10px 15px; 
+    border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-weight: bold; width: 100%;">
+    Copy {label} to Clipboard
     </button>
     """
-    components.html(html_code, height=50)
+    components.html(html_code, height=60)
 
 st.title("🎙️ Unified Task Generator")
-st.write("Upload all videos/audios. AI will combine them into **one** professional bug report.")
+st.write("Combine all your videos and audios into one professional bug report.")
 
 uploaded_files = st.file_uploader(
     "Select your Video and Audio files", 
@@ -59,23 +64,16 @@ if uploaded_files:
                     st.error(f"Error reading {uploaded_file.name}: {e}")
 
         if all_transcripts:
-            with st.spinner("AI is analyzing all data to create a professional report..."):
+            with st.spinner("AI is creating the combined report..."):
                 combined_text = "\n".join(all_transcripts)
                 
                 master_prompt = f"""
-                You are a Senior QA Automation Engineer. I am providing multiple transcripts from bug report recordings.
-                Combine them into one high-quality, professional Jira-style bug report.
+                You are a Senior QA Automation Engineer. Combine these bug reports into one master Jira-style report.
+                Return ONLY a JSON object with two fields:
+                "h": A short, professional title.
+                "d": A detailed description (string format) with Summary, Steps, and Results.
                 
-                Transcripts to analyze:
-                {combined_text}
-                
-                Return ONLY a JSON object with:
-                "h": A concise, professional heading (e.g., "[Bug] Issue with checkout button on mobile").
-                "d": A detailed description including:
-                    - Summary of the issue
-                    - Steps to reproduce
-                    - Expected vs Actual results
-                    - Any specific observations mentioned in the audio/video.
+                Transcripts: {combined_text}
                 """
                 
                 res = client.chat.completions.create(
@@ -83,18 +81,22 @@ if uploaded_files:
                     messages=[{"role": "user", "content": master_prompt}],
                     response_format={"type": "json_object"}
                 )
+                
                 data = json.loads(res.choices[0].message.content)
                 heading = data.get('h', '')
                 description = data.get('d', '')
 
+                # Convert description to string if the AI accidentally sent a list/dict
+                if not isinstance(description, str):
+                    description = json.dumps(description, indent=2)
+
                 st.success("### ✅ Master Task Generated")
                 
-                # Heading Section
+                # Result Display
                 st.subheader("Heading")
                 st.info(heading)
                 copy_button(heading, "Heading")
                 
-                # Description Section
                 st.subheader("Description")
-                st.markdown(f"```\n{description}\n```")
+                st.text_area("Final Report", value=description, height=300)
                 copy_button(description, "Description")
