@@ -17,11 +17,8 @@ st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="centered"
 
 # --- Function for Copy Button ---
 def copy_button(text, label):
-    # Ensure text is a string to prevent AttributeError
     if not isinstance(text, str):
         text = json.dumps(text, indent=2)
-    
-    # Sanitize text for JavaScript
     safe_text = text.replace("`", "\\`").replace("${", "\\${").replace("'", "\\'")
     
     html_code = f"""
@@ -34,7 +31,7 @@ def copy_button(text, label):
     components.html(html_code, height=60)
 
 st.title("🎙️ Unified Task Generator")
-st.write("Combine all your videos and audios into one professional bug report.")
+st.write("Clean, technical bug reports for developers.")
 
 uploaded_files = st.file_uploader(
     "Select your Video and Audio files", 
@@ -43,9 +40,7 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    st.info(f"📁 **{len(uploaded_files)} files selected.**")
-    
-    if st.button("Generate Master Task", type="primary"):
+    if st.button("Generate Developer Task", type="primary"):
         all_transcripts = []
         
         for uploaded_file in uploaded_files:
@@ -54,26 +49,26 @@ if uploaded_files:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
                         tmp.write(uploaded_file.getvalue())
                         tmp_path = tmp.name
-
                     with open(tmp_path, "rb") as f:
                         transcript = client.audio.transcriptions.create(model="whisper-large-v3", file=f)
-                    
-                    all_transcripts.append(f"Source ({uploaded_file.name}): {transcript.text}")
+                    all_transcripts.append(transcript.text)
                     os.remove(tmp_path)
                 except Exception as e:
-                    st.error(f"Error reading {uploaded_file.name}: {e}")
+                    st.error(f"Error: {e}")
 
         if all_transcripts:
-            with st.spinner("AI is creating the combined report..."):
+            with st.spinner("AI is drafting technical details..."):
                 combined_text = "\n".join(all_transcripts)
                 
                 master_prompt = f"""
-                You are a Senior QA Automation Engineer. Combine these bug reports into one master Jira-style report.
-                Return ONLY a JSON object with two fields:
-                "h": A short, professional title.
-                "d": A detailed description (string format) with Summary, Steps, and Results.
+                Act as a Senior QA Engineer. Create a brief, technical bug report for a developer.
+                Avoid conversational filler. Focus only on actionable data.
                 
                 Transcripts: {combined_text}
+                
+                Output ONLY a JSON object:
+                "h": "Short, technical title",
+                "d": "Brief Summary\\n\\nSteps:\\n1...\\n2...\\n\\nExpected: ...\\nActual: ..."
                 """
                 
                 res = client.chat.completions.create(
@@ -86,17 +81,12 @@ if uploaded_files:
                 heading = data.get('h', '')
                 description = data.get('d', '')
 
-                # Convert description to string if the AI accidentally sent a list/dict
-                if not isinstance(description, str):
-                    description = json.dumps(description, indent=2)
-
-                st.success("### ✅ Master Task Generated")
+                st.success("### ✅ Task Ready")
                 
-                # Result Display
-                st.subheader("Heading")
+                st.subheader("Task Heading")
                 st.info(heading)
                 copy_button(heading, "Heading")
                 
-                st.subheader("Description")
-                st.text_area("Final Report", value=description, height=300)
+                st.subheader("Developer Description")
+                st.text_area("Details", value=description, height=250)
                 copy_button(description, "Description")
