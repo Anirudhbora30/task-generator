@@ -3,6 +3,7 @@ import openai
 import json
 import os
 import tempfile
+import streamlit.components.v1 as components
 
 # Pull key from Secrets
 api_key = st.secrets.get("GROQ_API_KEY")
@@ -13,6 +14,18 @@ client = openai.OpenAI(
 )
 
 st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="centered")
+
+# --- Function for Copy Button ---
+def copy_button(text, label):
+    # This creates a small HTML button that copies text to your phone/PC clipboard
+    html_code = f"""
+    <button onclick="navigator.clipboard.writeText(`{text}`)" 
+    style="background-color: #ff4b4b; color: white; border: none; padding: 5px 10px; 
+    border-radius: 5px; cursor: pointer; margin-bottom: 10px;">
+    Copy {label}
+    </button>
+    """
+    components.html(html_code, height=45)
 
 st.title("🎙️ Unified Task Generator")
 st.write("Upload all videos/audios. AI will combine them into **one** master task.")
@@ -29,7 +42,6 @@ if uploaded_files:
     if st.button("Generate One Master Task", type="primary"):
         all_transcripts = []
         
-        # Step 1: Process every file to get text
         for uploaded_file in uploaded_files:
             with st.spinner(f"Reading {uploaded_file.name}..."):
                 try:
@@ -45,20 +57,14 @@ if uploaded_files:
                 except Exception as e:
                     st.error(f"Error reading {uploaded_file.name}: {e}")
 
-        # Step 2: Combine all text into ONE AI prompt
         if all_transcripts:
             with st.spinner("Combining everything into one task..."):
                 combined_text = "\n".join(all_transcripts)
                 
                 master_prompt = f"""
-                You are a professional QA Lead. I am giving you multiple bug report transcripts for the same task.
-                Combine all of them into one single, cohesive bug report.
-                
-                Transcripts:
-                {combined_text}
-                
-                Output ONLY a JSON object:
-                {{'h': 'One master heading for all', 'd': 'One master description combining all details'}}
+                You are a professional QA Lead. Combine these bug reports into one cohesive JSON:
+                {{'h': 'One master heading', 'd': 'One master description'}}
+                Transcripts: {combined_text}
                 """
                 
                 res = client.chat.completions.create(
@@ -67,8 +73,17 @@ if uploaded_files:
                     response_format={"type": "json_object"}
                 )
                 data = json.loads(res.choices[0].message.content)
+                heading = data.get('h', '')
+                description = data.get('d', '')
 
-                # Step 3: Show the single result
                 st.success("### ✅ Master Task Generated")
-                st.text_input("Master Heading", value=data.get('h'))
-                st.text_area("Master Description", value=data.get('d'), height=250)
+                
+                # Heading Section
+                st.subheader("Heading")
+                st.code(heading, language=None)
+                copy_button(heading, "Heading")
+                
+                # Description Section
+                st.subheader("Description")
+                st.write(description)
+                copy_button(description, "Description")
