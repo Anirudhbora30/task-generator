@@ -12,55 +12,63 @@ client = openai.OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="wide")
+st.set_page_config(page_title="Task AI Pro", page_icon="📝", layout="centered")
 
-st.title("🎙️ All-in-One Task Generator")
-st.write("Upload any combination of Video and Audio files together.")
+st.title("🎙️ Unified Task Generator")
+st.write("Upload all videos/audios. AI will combine them into **one** master task.")
 
-# Mixed upload with support for Opus/WhatsApp voice notes
 uploaded_files = st.file_uploader(
-    "Select your Video and Audio files (Mixed)", 
+    "Select your Video and Audio files", 
     type=['mp3', 'mp4', 'wav', 'm4a', 'mov', 'mpeg4', 'webm', 'opus', 'ogg'], 
     accept_multiple_files=True
 )
 
 if uploaded_files:
-    st.info(f"📁 **{len(uploaded_files)} files ready for analysis.**")
+    st.info(f"📁 **{len(uploaded_files)} files selected.**")
     
-    if st.button(f"Analyze All Files", type="primary"):
-        for i, uploaded_file in enumerate(uploaded_files):
-            with st.container():
-                icon = "🎥" if uploaded_file.type.startswith('video') else "🎵"
-                st.subheader(f"{icon} File {i+1}: {uploaded_file.name}")
+    if st.button("Generate One Master Task", type="primary"):
+        all_transcripts = []
+        
+        # Step 1: Process every file to get text
+        for uploaded_file in uploaded_files:
+            with st.spinner(f"Reading {uploaded_file.name}..."):
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
+                        tmp.write(uploaded_file.getvalue())
+                        tmp_path = tmp.name
+
+                    with open(tmp_path, "rb") as f:
+                        transcript = client.audio.transcriptions.create(model="whisper-large-v3", file=f)
+                    
+                    all_transcripts.append(f"File ({uploaded_file.name}): {transcript.text}")
+                    os.remove(tmp_path)
+                except Exception as e:
+                    st.error(f"Error reading {uploaded_file.name}: {e}")
+
+        # Step 2: Combine all text into ONE AI prompt
+        if all_transcripts:
+            with st.spinner("Combining everything into one task..."):
+                combined_text = "\n".join(all_transcripts)
                 
-                with st.spinner(f"AI is processing {uploaded_file.name}..."):
-                    try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
-                            tmp.write(uploaded_file.getvalue())
-                            tmp_path = tmp.name
+                master_prompt = f"""
+                You are a professional QA Lead. I am giving you multiple bug report transcripts for the same task.
+                Combine all of them into one single, cohesive bug report.
+                
+                Transcripts:
+                {combined_text}
+                
+                Output ONLY a JSON object:
+                {{'h': 'One master heading for all', 'd': 'One master description combining all details'}}
+                """
+                
+                res = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[{"role": "user", "content": master_prompt}],
+                    response_format={"type": "json_object"}
+                )
+                data = json.loads(res.choices[0].message.content)
 
-                        with open(tmp_path, "rb") as f:
-                            transcript = client.audio.transcriptions.create(model="whisper-large-v3", file=f)
-                        os.remove(tmp_path)
-
-                        prompt = f"""
-                        Extract the task from this transcript: "{transcript.text}"
-                        Output strictly in JSON:
-                        {{'h': 'short title', 'd': 'detailed steps'}}
-                        """
-                        res = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[{"role": "user", "content": prompt}],
-                            response_format={"type": "json_object"}
-                        )
-                        data = json.loads(res.choices[0].message.content)
-
-                        col1, col2 = st.columns([1, 2])
-                        with col1:
-                            st.text_input(f"Task Heading {i+1}", value=data.get('h'), key=f"h_{i}")
-                        with col2:
-                            st.text_area(f"Task Description {i+1}", value=data.get('d'), height=100, key=f"d_{i}")
-                        st.divider()
-                        
-                    except Exception as e:
-                        st.error(f"Could not process {uploaded_file.name}: {e}")
+                # Step 3: Show the single result
+                st.success("### ✅ Master Task Generated")
+                st.text_input("Master Heading", value=data.get('h'))
+                st.text_area("Master Description", value=data.get('d'), height=250)
