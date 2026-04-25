@@ -18,10 +18,7 @@ st.title("🎙️ All-in-One Task Generator")
 st.write("Upload any combination of Video and Audio files together.")
 
 # This setting allows you to select multiple different types at once
-uploaded_files = st.file_uploader(
-    "Select your Video and Audio files (Mixed)", 
-    type=['mp3', 'mp4', 'wav', 'm4a', 'mov', 'mpeg4', 'webm'], 
-    accept_multiple_files=True
+uploaded_files = st.file_uploader("Select your Video and Audio files (Mixed)", type=['mp3', 'mp4', 'wav', 'm4a', 'mov', 'mpeg4', 'webm', 'opus', 'ogg'], accept_multiple_files=True)
 )
 
 if uploaded_files:
